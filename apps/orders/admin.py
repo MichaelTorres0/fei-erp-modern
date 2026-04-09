@@ -1,13 +1,20 @@
+from decimal import Decimal
+
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import Order, OrderLine, OrderAudit
+from apps.pricing.services import calculate_price
 
 
 class OrderLineInline(admin.TabularInline):
     model = OrderLine
-    extra = 0
-    readonly_fields = ["extension"]
+    extra = 1
     autocomplete_fields = ["product"]
+    readonly_fields = ["extension"]
+
+    def get_readonly_fields(self, request, obj=None):
+        """Extension is always read-only (calculated)."""
+        return ["extension"]
 
 
 class OrderAuditInline(admin.TabularInline):
@@ -46,6 +53,9 @@ class OrderAdmin(admin.ModelAdmin):
     autocomplete_fields = ["customer"]
     date_hierarchy = "order_date"
     inlines = [OrderLineInline, OrderAuditInline]
+
+    class Media:
+        js = ("orders/js/order_admin.js",)
 
     fieldsets = (
         ("Order Info", {
@@ -90,3 +100,49 @@ class OrderAdmin(admin.ModelAdmin):
             color,
             label,
         )
+
+    def save_formset(self, request, form, formset, change):
+        """
+        Auto-fill pricing on order lines if not already set.
+        This is the backend fallback for the JS auto-fill.
+        """
+        instances = formset.save(commit=False)
+
+        order = form.instance
+        customer = order.customer
+
+        subtotal = Decimal("0")
+        for instance in instances:
+            if isinstance(instance, OrderLine):
+                # Auto-fill pricing if unit_price is 0 (not yet set)
+                if not instance.unit_price or instance.unit_price == 0:
+                    price_result = calculate_price(customer, instance.product)
+                    instance.unit_price = price_result.gross
+                    instance.discount_1 = price_result.discount_1
+                    instance.discount_2 = price_result.discount_2
+                    instance.net_price = price_result.net
+                    instance.cost = instance.product.standard_cost
+
+                # Auto-fill qty_open if not set
+                if not instance.qty_open:
+                    instance.qty_open = instance.qty_ordered
+
+                # Calculate extension
+                instance.extension = instance.net_price * instance.qty_ordered
+
+                instance.save()
+                subtotal += instance.extension
+
+        # Handle deleted objects
+        for obj in formset.deleted_objects:
+            obj.delete()
+
+        # Update order subtotal from all lines (not just new ones)
+        if instances or formset.deleted_objects:
+            total = sum(
+                line.extension for line in OrderLine.objects.filter(order=order)
+            )
+            order.subtotal = total
+            order.save(update_fields=["subtotal"])
+
+        formset.save_m2m()

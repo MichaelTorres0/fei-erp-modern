@@ -59,3 +59,14 @@ class TestCustomerAPI:
         response = api_client.get(url, {"credit_code": "A"})
         assert response.status_code == 200
         assert response.data["count"] == 2
+
+    def test_customer_orders_endpoint(self, api_client):
+        from apps.orders.tests.factories import OrderFactory
+        customer = CustomerFactory()
+        OrderFactory(customer=customer)
+        OrderFactory(customer=customer)
+        OrderFactory()  # different customer
+        url = reverse("customer-orders", args=[customer.pk])
+        response = api_client.get(url)
+        assert response.status_code == 200
+        assert response.data["count"] == 2

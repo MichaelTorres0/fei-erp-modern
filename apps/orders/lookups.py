@@ -59,4 +59,14 @@ def customer_defaults_lookup(request):
         "credit_code": customer.credit_code,
         "credit_limit": str(customer.credit_limit),
         "ar_balance": str(customer.ar_balance),
+        "open_order_amount": str(customer.open_order_amount),
+        "over_90_balance": str(customer.over_90_balance),
+        "available_credit": str(customer.available_credit),
+        # Ship-to defaults from customer address
+        "address_line_1": customer.address_line_1,
+        "address_line_2": customer.address_line_2,
+        "city": customer.city,
+        "state": customer.state,
+        "zip_code": customer.zip_code,
+        "country": customer.country,
     })

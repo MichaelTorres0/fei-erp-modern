@@ -25,5 +25,7 @@ class CustomerPriceHistoryAdmin(admin.ModelAdmin):
     ]
     search_fields = [
         "customer__customer_number",
+        "customer__name",
         "product__product_number",
     ]
+    autocomplete_fields = ["customer", "product"]

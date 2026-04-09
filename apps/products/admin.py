@@ -22,6 +22,29 @@ class WarehouseInventoryInline(admin.TabularInline):
     extra = 0
     verbose_name = "Warehouse Stock"
     verbose_name_plural = "Warehouse Stock Levels"
+    readonly_fields = ["committed_qty", "available_qty"]
+
+    @admin.display(description="Committed")
+    def committed_qty(self, obj):
+        if not obj.pk:
+            return "-"
+        from apps.orders.models import OrderLine
+        from django.db.models import Sum
+        committed = OrderLine.objects.filter(
+            product=obj.product,
+            warehouse_code=obj.warehouse_code,
+            order__queue_status__in=["OEQ", "MGQ", "CHQ", "PTQ"],
+        ).aggregate(total=Sum("qty_open"))["total"] or 0
+        return committed
+
+    @admin.display(description="Available")
+    def available_qty(self, obj):
+        if not obj.pk:
+            return "-"
+        committed = self.committed_qty(obj)
+        if isinstance(committed, str):
+            return "-"
+        return obj.on_hand_qty - committed
 
 
 @admin.register(Product)
@@ -71,9 +94,28 @@ class WarehouseInventoryAdmin(admin.ModelAdmin):
         "product",
         "warehouse_code",
         "on_hand_qty",
+        "committed_qty",
+        "available_qty",
         "mtd_units",
         "ytd_units",
         "last_activity_date",
     ]
     list_filter = ["warehouse_code"]
     search_fields = ["product__product_number", "product__description"]
+    readonly_fields = ["committed_qty", "available_qty"]
+
+    @admin.display(description="Committed")
+    def committed_qty(self, obj):
+        from apps.orders.models import OrderLine
+        from django.db.models import Sum
+        committed = OrderLine.objects.filter(
+            product=obj.product,
+            warehouse_code=obj.warehouse_code,
+            order__queue_status__in=["OEQ", "MGQ", "CHQ", "PTQ"],
+        ).aggregate(total=Sum("qty_open"))["total"] or 0
+        return committed
+
+    @admin.display(description="Available")
+    def available_qty(self, obj):
+        committed = self.committed_qty(obj)
+        return obj.on_hand_qty - committed

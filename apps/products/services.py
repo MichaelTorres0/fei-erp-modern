@@ -36,13 +36,21 @@ def get_availability(product, warehouse_code=None):
     return result
 
 
-def get_kit_availability(product, warehouse_code):
+def get_kit_availability(product, warehouse_code, _seen=None):
     """
     For kit products, availability = min(component_available / qty_per_kit)
-    across all components. Returns int (whole kits available) or None if not a kit.
+    across all components. Supports nested kits with circular reference protection.
+    Returns int (whole kits available) or None if not a kit.
     """
     if not product.is_kit:
         return None
+
+    # Circular reference protection
+    if _seen is None:
+        _seen = set()
+    if product.pk in _seen:
+        return 0  # circular reference - treat as 0 availability
+    _seen.add(product.pk)
 
     components = product.components.select_related("component_product").all()
     if not components:
@@ -50,11 +58,20 @@ def get_kit_availability(product, warehouse_code):
 
     min_kits = None
     for comp in components:
-        comp_availability = get_availability(comp.component_product, warehouse_code)
-        if warehouse_code not in comp_availability:
-            return 0
-        available = comp_availability[warehouse_code]["available"]
-        kits_from_component = int(available / comp.quantity_per_kit)
+        if comp.component_product.is_kit:
+            # Nested kit - recursively get its availability
+            nested_avail = get_kit_availability(comp.component_product, warehouse_code, _seen)
+            if nested_avail is None or nested_avail == 0:
+                return 0
+            kits_from_component = int(nested_avail / comp.quantity_per_kit)
+        else:
+            # Regular component - check warehouse inventory
+            comp_availability = get_availability(comp.component_product, warehouse_code)
+            if warehouse_code not in comp_availability:
+                return 0
+            available = comp_availability[warehouse_code]["available"]
+            kits_from_component = int(available / comp.quantity_per_kit)
+
         if min_kits is None or kits_from_component < min_kits:
             min_kits = kits_from_component
 

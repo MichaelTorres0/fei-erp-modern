@@ -9,6 +9,7 @@ from apps.orders.constants import ACTIVE_QUEUE_STATUSES, VALID_TRANSITIONS, HOLD
 from apps.orders.models import Order, OrderLine, OrderAudit
 from apps.pricing.services import calculate_price
 from apps.products.models import Product
+from apps.products.services import allocate_inventory, release_commitments
 
 # Backward-compatible alias
 OPEN_QUEUE_STATUSES = ACTIVE_QUEUE_STATUSES
@@ -207,6 +208,22 @@ def create_order(customer, lines, placed_by="SYSTEM", **header_fields) -> Order:
             order.subtotal = subtotal
             order.save(update_fields=["subtotal"])
 
+    # Allocate inventory for each line
+    has_backorder = False
+    backorder_allowed = getattr(customer, "backorder_flag", True)
+    for line in OrderLine.objects.filter(order=order):
+        allocation = allocate_inventory(line, backorder_allowed=backorder_allowed)
+        if allocation.backorder_qty > 0:
+            has_backorder = True
+
+    if has_backorder:
+        OrderAudit.objects.create(
+            order=order,
+            operator=placed_by,
+            event_code="BO_NOTE",
+            notes="Order has backorder lines — insufficient warehouse stock for full fill",
+        )
+
     # Run credit check and route
     credit_result = check_credit(customer, subtotal)
     order.queue_status = credit_result.queue
@@ -261,6 +278,7 @@ def transition_queue(order, new_status, operator) -> Order:
 
     # Sync customer open order amount when order leaves active queues
     if new_status == "IVQ":
+        release_commitments(order)
         sync_customer_open_orders(order.customer)
 
     return order

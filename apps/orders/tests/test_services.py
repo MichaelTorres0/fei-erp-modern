@@ -7,6 +7,7 @@ from apps.pricing.tests.factories import CustomerSpecialPriceFactory
 from apps.orders.tests.factories import OrderFactory
 from apps.orders.services import check_credit, create_order, transition_queue
 from apps.orders.models import Order
+from apps.products.models import InventoryCommitment
 
 pytestmark = pytest.mark.django_db
 
@@ -206,3 +207,26 @@ class TestOrderPricingIntegration:
         line = order.lines.first()
         # Kit price = 30 * 2 = 60
         assert line.net_price == Decimal("60.0000")
+
+
+class TestOrderInventoryAllocation:
+    def test_create_order_creates_commitments(self):
+        customer = CustomerFactory(credit_code="A")
+        product = ProductFactory(list_price=25.00)
+        WarehouseInventoryFactory(product=product, warehouse_code="NY", on_hand_qty=100)
+        lines = [{"product_id": product.pk, "qty_ordered": 10, "warehouse_code": "NY"}]
+        order = create_order(customer=customer, lines=lines, placed_by="TEST")
+        commitment = InventoryCommitment.objects.get(order_line=order.lines.first())
+        assert commitment.committed_qty == 10
+        assert commitment.backorder_qty == 0
+
+    def test_ivq_releases_commitments(self):
+        customer = CustomerFactory(credit_code="A")
+        product = ProductFactory(list_price=25.00)
+        WarehouseInventoryFactory(product=product, warehouse_code="NY", on_hand_qty=100)
+        lines = [{"product_id": product.pk, "qty_ordered": 10, "warehouse_code": "NY"}]
+        order = create_order(customer=customer, lines=lines, placed_by="TEST")
+        assert InventoryCommitment.objects.filter(order_line__order=order).count() == 1
+        transition_queue(order, "PTQ", "admin")
+        transition_queue(order, "IVQ", "admin")
+        assert InventoryCommitment.objects.filter(order_line__order=order).count() == 0

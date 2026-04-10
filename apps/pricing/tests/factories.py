@@ -1,5 +1,5 @@
 import factory
-from apps.pricing.models import CustomerSpecialPrice, CustomerPriceHistory
+from apps.pricing.models import CustomerSpecialPrice, CustomerPriceHistory, AffiliationPrice
 from apps.customers.tests.factories import CustomerFactory
 from apps.products.tests.factories import ProductFactory
 
@@ -20,3 +20,13 @@ class CustomerPriceHistoryFactory(factory.django.DjangoModelFactory):
 
     customer = factory.SubFactory(CustomerFactory)
     product = factory.SubFactory(ProductFactory)
+
+
+class AffiliationPriceFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = AffiliationPrice
+
+    affiliation_code = "DIST"
+    product = factory.SubFactory(ProductFactory)
+    gross_price = factory.LazyFunction(lambda: 35.00)
+    net_price = factory.LazyFunction(lambda: 35.00)

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CustomerSpecialPrice, CustomerPriceHistory
+from .models import CustomerSpecialPrice, CustomerPriceHistory, AffiliationPrice
 
 
 @admin.register(CustomerSpecialPrice)
@@ -29,3 +29,11 @@ class CustomerPriceHistoryAdmin(admin.ModelAdmin):
         "product__product_number",
     ]
     autocomplete_fields = ["customer", "product"]
+
+
+@admin.register(AffiliationPrice)
+class AffiliationPriceAdmin(admin.ModelAdmin):
+    list_display = ["affiliation_code", "product", "gross_price", "discount_1", "net_price"]
+    list_filter = ["affiliation_code"]
+    search_fields = ["affiliation_code", "product__product_number"]
+    autocomplete_fields = ["product"]

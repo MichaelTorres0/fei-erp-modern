@@ -1,5 +1,5 @@
 import pytest
-from apps.pricing.tests.factories import CustomerSpecialPriceFactory
+from apps.pricing.tests.factories import CustomerSpecialPriceFactory, AffiliationPriceFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -15,3 +15,21 @@ class TestCustomerSpecialPrice:
         sp = CustomerSpecialPriceFactory()
         with pytest.raises(Exception):
             CustomerSpecialPriceFactory(customer=sp.customer, product=sp.product)
+
+
+class TestAffiliationPrice:
+    def test_create_affiliation_price(self):
+        ap = AffiliationPriceFactory(
+            affiliation_code="DIST",
+            gross_price=35.00,
+            net_price=31.50,
+        )
+        assert ap.affiliation_code == "DIST"
+        assert ap.net_price == 31.50
+
+    def test_unique_affiliation_product(self):
+        ap = AffiliationPriceFactory(affiliation_code="DIST")
+        with pytest.raises(Exception):
+            AffiliationPriceFactory(
+                affiliation_code="DIST", product=ap.product
+            )

@@ -44,3 +44,29 @@ class CustomerPriceHistory(models.Model):
 
     def __str__(self):
         return f"Price history: {self.customer.customer_number} / {self.product.product_number}"
+
+
+class AffiliationPrice(models.Model):
+    """
+    Group/affiliation-based pricing. Maps to legacy STD.ORDERS records
+    keyed by affiliation code rather than customer number.
+    """
+    affiliation_code = models.CharField(max_length=50)
+    product = models.ForeignKey(
+        "products.Product", on_delete=models.CASCADE, related_name="affiliation_prices"
+    )
+    price_level = models.CharField(
+        max_length=5, blank=True, default="",
+        help_text="Override: L=List, A=Price A, B=Price B"
+    )
+    gross_price = models.DecimalField(max_digits=10, decimal_places=4)
+    discount_1 = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    discount_2 = models.DecimalField(max_digits=6, decimal_places=2, default=0)
+    net_price = models.DecimalField(max_digits=10, decimal_places=4)
+
+    class Meta:
+        unique_together = ["affiliation_code", "product"]
+        verbose_name = "affiliation price"
+
+    def __str__(self):
+        return f"{self.affiliation_code} / {self.product.product_number}: ${self.net_price}"

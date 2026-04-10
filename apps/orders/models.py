@@ -8,6 +8,13 @@ class Order(models.Model):
         ("CHQ", "Credit Hold"),
         ("PTQ", "Pick Ticket"),
         ("IVQ", "Invoice"),
+        ("FQQ", "Freight Quote"),
+        ("CRDQ", "Credit Card"),
+        ("SRQ", "Sales Review"),
+        ("BOQ", "Backorder"),
+        ("PDQ", "Price Discrepancy"),
+        ("PQ", "Problem"),
+        ("CSQ", "Customer Service"),
     ]
 
     order_number = models.CharField(max_length=20, unique=True)

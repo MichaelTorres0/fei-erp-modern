@@ -14,13 +14,20 @@ from apps.products.models import Product
 VALID_TRANSITIONS = {
     "OEQ": ["MGQ", "CHQ"],
     "CHQ": ["MGQ"],
-    "MGQ": ["PTQ"],
-    "PTQ": ["IVQ"],
+    "MGQ": ["PTQ", "FQQ", "CRDQ", "SRQ", "PDQ"],
+    "FQQ": ["PTQ", "MGQ"],
+    "CRDQ": ["PTQ", "MGQ"],
+    "SRQ": ["MGQ"],
+    "PDQ": ["MGQ"],
+    "PTQ": ["IVQ", "BOQ", "PQ"],
+    "BOQ": ["PTQ"],
+    "PQ": ["PTQ", "MGQ"],
+    "CSQ": ["MGQ", "OEQ"],
     "IVQ": [],
 }
 
 # Queue statuses that count toward open order amount
-OPEN_QUEUE_STATUSES = ["OEQ", "MGQ", "CHQ", "PTQ"]
+OPEN_QUEUE_STATUSES = ["OEQ", "MGQ", "CHQ", "PTQ", "FQQ", "CRDQ", "SRQ", "PDQ", "BOQ", "PQ", "CSQ"]
 
 # Credit codes that always go to credit hold
 HOLD_CREDIT_CODES = {"D", "C", "Z", "H"}

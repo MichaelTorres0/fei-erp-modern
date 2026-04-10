@@ -124,3 +124,63 @@ class TestTransitionQueue:
         order = OrderFactory(queue_status="CHQ")
         updated = transition_queue(order, "MGQ", "manager")
         assert updated.queue_status == "MGQ"
+
+    def test_mgq_to_fqq(self):
+        order = OrderFactory(queue_status="MGQ")
+        updated = transition_queue(order, "FQQ", "admin")
+        assert updated.queue_status == "FQQ"
+
+    def test_fqq_to_ptq(self):
+        order = OrderFactory(queue_status="FQQ")
+        updated = transition_queue(order, "PTQ", "admin")
+        assert updated.queue_status == "PTQ"
+
+    def test_mgq_to_crdq(self):
+        order = OrderFactory(queue_status="MGQ")
+        updated = transition_queue(order, "CRDQ", "admin")
+        assert updated.queue_status == "CRDQ"
+
+    def test_crdq_to_ptq(self):
+        order = OrderFactory(queue_status="CRDQ")
+        updated = transition_queue(order, "PTQ", "admin")
+        assert updated.queue_status == "PTQ"
+
+    def test_mgq_to_srq(self):
+        order = OrderFactory(queue_status="MGQ")
+        updated = transition_queue(order, "SRQ", "admin")
+        assert updated.queue_status == "SRQ"
+
+    def test_srq_to_mgq(self):
+        order = OrderFactory(queue_status="SRQ")
+        updated = transition_queue(order, "MGQ", "admin")
+        assert updated.queue_status == "MGQ"
+
+    def test_ptq_to_boq(self):
+        order = OrderFactory(queue_status="PTQ")
+        updated = transition_queue(order, "BOQ", "admin")
+        assert updated.queue_status == "BOQ"
+
+    def test_boq_to_ptq(self):
+        order = OrderFactory(queue_status="BOQ")
+        updated = transition_queue(order, "PTQ", "admin")
+        assert updated.queue_status == "PTQ"
+
+    def test_mgq_to_pdq(self):
+        order = OrderFactory(queue_status="MGQ")
+        updated = transition_queue(order, "PDQ", "admin")
+        assert updated.queue_status == "PDQ"
+
+    def test_pdq_to_mgq(self):
+        order = OrderFactory(queue_status="PDQ")
+        updated = transition_queue(order, "MGQ", "admin")
+        assert updated.queue_status == "MGQ"
+
+    def test_ptq_to_pq(self):
+        order = OrderFactory(queue_status="PTQ")
+        updated = transition_queue(order, "PQ", "admin")
+        assert updated.queue_status == "PQ"
+
+    def test_pq_to_ptq(self):
+        order = OrderFactory(queue_status="PQ")
+        updated = transition_queue(order, "PTQ", "admin")
+        assert updated.queue_status == "PTQ"

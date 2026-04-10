@@ -42,11 +42,18 @@ class OrderAuditInline(admin.TabularInline):
 
 
 QUEUE_COLORS = {
-    "OEQ": "#6c757d",  # gray
-    "MGQ": "#28a745",  # green
-    "CHQ": "#dc3545",  # red
-    "PTQ": "#007bff",  # blue
-    "IVQ": "#17a2b8",  # teal
+    "OEQ": "#6c757d",
+    "MGQ": "#28a745",
+    "CHQ": "#dc3545",
+    "PTQ": "#007bff",
+    "IVQ": "#17a2b8",
+    "FQQ": "#fd7e14",
+    "CRDQ": "#6f42c1",
+    "SRQ": "#e83e8c",
+    "BOQ": "#ffc107",
+    "PDQ": "#20c997",
+    "PQ": "#343a40",
+    "CSQ": "#795548",
 }
 
 

@@ -393,6 +393,38 @@ class Command(BaseCommand):
         make_special_price("F10018", "FEI-9001", Decimal("45.99"), 0, Decimal("45.99"))
         make_special_price("F10018", "KIT-9000", Decimal("68.99"), 0, Decimal("68.99"))
 
+        # --- Affiliation Pricing ---
+        from apps.pricing.models import AffiliationPrice
+        self.stdout.write("  Creating affiliation prices...")
+        aff_prices = [
+            {"affiliation_code": "DIST", "product_number": "FEI-1001", "discount_pct": 15},
+            {"affiliation_code": "DIST", "product_number": "FEI-1002", "discount_pct": 15},
+            {"affiliation_code": "MED", "product_number": "FEI-2001", "discount_pct": 10},
+            {"affiliation_code": "MED", "product_number": "FEI-2002", "discount_pct": 10},
+            {"affiliation_code": "GOV", "product_number": "FEI-3001", "discount_pct": 20},
+            {"affiliation_code": "GOV", "product_number": "FEI-3002", "discount_pct": 20},
+            {"affiliation_code": "GOV", "product_number": "FEI-3003", "discount_pct": 20},
+        ]
+        for ap_data in aff_prices:
+            prod = Product.objects.get(product_number=ap_data["product_number"])
+            disc = Decimal(str(ap_data["discount_pct"]))
+            gross = prod.list_price
+            net = (gross * (Decimal("1") - disc / Decimal("100"))).quantize(Decimal("0.0001"))
+            AffiliationPrice.objects.get_or_create(
+                affiliation_code=ap_data["affiliation_code"],
+                product=prod,
+                defaults={"gross_price": gross, "discount_1": disc, "net_price": net},
+            )
+
+        # Set company codes on some customers
+        for cn, cc in [("F10002", "B"), ("F10004", "C")]:
+            try:
+                c_obj = Customer.objects.get(customer_number=cn)
+                c_obj.company_code = cc
+                c_obj.save(update_fields=["company_code"])
+            except Customer.DoesNotExist:
+                pass
+
         # -----------------------------------------------------------------------
         # ORDERS (~30 total in various queue states)
         # -----------------------------------------------------------------------
@@ -567,6 +599,7 @@ class Command(BaseCommand):
         self.stdout.write(f"  Kit components:     {KitComponent.objects.count()}")
         self.stdout.write(f"  Warehouse records:  {WarehouseInventory.objects.count()}")
         self.stdout.write(f"  Special prices:     {CustomerSpecialPrice.objects.count()}")
+        self.stdout.write(f"  Affiliation prices: {AffiliationPrice.objects.count()}")
         self.stdout.write(f"  Orders (total):     {Order.objects.count()}")
         for code, count in queue_counts.items():
             self.stdout.write(f"    {code}:             {count}")

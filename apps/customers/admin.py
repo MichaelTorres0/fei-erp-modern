@@ -20,6 +20,8 @@ class CustomerAdmin(admin.ModelAdmin):
         "ar_balance",
         "credit_limit",
         "affiliation",
+        "company_code",
+        "price_level",
         "is_active",
     ]
     list_filter = ["credit_code", "state", "affiliation", "is_active"]
@@ -39,6 +41,7 @@ class CustomerAdmin(admin.ModelAdmin):
                 "terms_code", "credit_code", "credit_limit",
                 "ar_balance", "open_order_amount", "over_90_balance",
                 "ytd_sales", "last_payment_date", "last_payment_amount",
+                "company_code", "price_level",
             )
         }),
         ("Sales & Shipping", {

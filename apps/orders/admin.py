@@ -6,7 +6,8 @@ from django.utils.html import format_html
 from .models import Order, OrderLine, OrderAudit
 from .services import check_credit, sync_customer_open_orders, VALID_TRANSITIONS
 from apps.pricing.services import calculate_price
-from apps.products.services import get_availability
+from apps.products.services import get_availability, allocate_inventory
+from apps.products.models import InventoryCommitment
 
 
 class OrderLineInline(admin.TabularInline):
@@ -262,6 +263,23 @@ class OrderAdmin(admin.ModelAdmin):
                 messages.success(request, f"Credit approved — routed to {credit_result.queue}. {credit_result.reason}")
             else:
                 messages.warning(request, f"Credit hold — routed to {credit_result.queue}. {credit_result.reason}")
+
+            # Allocate inventory for new orders
+            has_backorder = False
+            backorder_allowed = getattr(order.customer, "backorder_flag", True)
+            for line in order.lines.all():
+                # Only allocate if no commitment exists yet
+                if not InventoryCommitment.objects.filter(order_line=line).exists():
+                    allocation = allocate_inventory(line, backorder_allowed=backorder_allowed)
+                    if allocation.backorder_qty > 0:
+                        has_backorder = True
+            if has_backorder:
+                OrderAudit.objects.create(
+                    order=order,
+                    operator=request.user.username,
+                    event_code="BO_NOTE",
+                    notes="Order has backorder lines — insufficient warehouse stock",
+                )
 
             # Check route_to_ptq annex flag
             customer = order.customer

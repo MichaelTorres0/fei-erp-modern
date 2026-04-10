@@ -124,14 +124,31 @@
             fillCustomerDefaults(customerId);
         });
 
+        // Also listen for Select2 specific events as fallback for customer
+        $(document).on('select2:select', '#id_customer', function(e) {
+            fillCustomerDefaults(e.params.data.id);
+        });
+
         // Watch for product changes on inline rows
         // Use event delegation since inlines can be added dynamically
-        // This covers both regular selects and Select2 autocomplete widgets
-        $(document).on('change', '[id$="-product"]', function() {
+        // Django autocomplete_fields uses Select2 which triggers change on the hidden select
+        $(document).on('change', 'select[id$="-product"]', function() {
             var productId = $(this).val();
             if (!productId) return;
 
             // Extract the line prefix (e.g., "id_lines-0" from "id_lines-0-product")
+            var fieldId = $(this).attr('id');
+            var linePrefix = fieldId.replace('-product', '');
+
+            fillLinePricing(linePrefix, productId);
+            autoAssignLineNumber(linePrefix);
+        });
+
+        // Also listen for Select2 specific events as fallback
+        $(document).on('select2:select', 'select[id$="-product"]', function(e) {
+            var productId = e.params.data.id;
+            if (!productId) return;
+
             var fieldId = $(this).attr('id');
             var linePrefix = fieldId.replace('-product', '');
 

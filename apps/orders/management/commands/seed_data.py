@@ -245,6 +245,15 @@ class Command(BaseCommand):
             if created:
                 self.stdout.write(f"  Created product: {prod}")
 
+        # Set Price A (~80% of list) and Price B (~70% of list) for all products
+        self.stdout.write("  Setting price levels A and B...")
+        for prod in Product.objects.filter(is_active=True):
+            if not prod.price_a:
+                prod.price_a = (prod.list_price * Decimal("0.80")).quantize(Decimal("0.0001"))
+            if not prod.price_b:
+                prod.price_b = (prod.list_price * Decimal("0.70")).quantize(Decimal("0.0001"))
+            prod.save(update_fields=["price_a", "price_b"])
+
         # -----------------------------------------------------------------------
         # KIT COMPONENTS (BOMs)
         # -----------------------------------------------------------------------

@@ -43,6 +43,21 @@ def allocate_inventory(order_line, backorder_allowed=True) -> AllocationResult:
     warehouse = order_line.warehouse_code
     requested = order_line.qty_ordered
 
+    # Skip allocation for drop-ship products — they don't consume warehouse inventory
+    if product.is_drop_ship:
+        InventoryCommitment.objects.create(
+            order_line=order_line,
+            product=product,
+            warehouse_code=warehouse,
+            committed_qty=0,
+            backorder_qty=0,
+        )
+        # Keep qty_open = qty_ordered for drop-ship (vendor fulfills)
+        order_line.qty_open = order_line.qty_ordered
+        order_line.backorder_qty = 0
+        order_line.save(update_fields=["qty_open", "backorder_qty"])
+        return AllocationResult(committed_qty=0, backorder_qty=0)
+
     try:
         inv = WarehouseInventory.objects.get(product=product, warehouse_code=warehouse)
         on_hand = inv.on_hand_qty

@@ -92,3 +92,29 @@ class WarehouseInventory(models.Model):
 
     def __str__(self):
         return f"{self.product.product_number} @ {self.warehouse_code}: {self.on_hand_qty}"
+
+
+class InventoryCommitment(models.Model):
+    """
+    Explicit per-order-line inventory allocation against a warehouse.
+    Maps to legacy WAREHOUSE fields WH(18-20).
+    """
+    order_line = models.OneToOneField(
+        "orders.OrderLine", on_delete=models.CASCADE, related_name="commitment"
+    )
+    product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="commitments"
+    )
+    warehouse_code = models.CharField(max_length=10)
+    committed_qty = models.IntegerField(default=0, help_text="Quantity allocated from on-hand")
+    backorder_qty = models.IntegerField(default=0, help_text="Quantity awaiting stock")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "inventory commitment"
+
+    def __str__(self):
+        return (
+            f"{self.product.product_number} @ {self.warehouse_code}: "
+            f"committed={self.committed_qty}, backorder={self.backorder_qty}"
+        )

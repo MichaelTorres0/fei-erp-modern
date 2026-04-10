@@ -4,7 +4,9 @@ from apps.products.tests.factories import (
     ProductAnnexFactory,
     KitComponentFactory,
     WarehouseInventoryFactory,
+    InventoryCommitmentFactory,
 )
+from apps.orders.tests.factories import OrderLineFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -66,3 +68,27 @@ class TestWarehouseInventory:
         WarehouseInventoryFactory(product=product, warehouse_code="NY", on_hand_qty=50)
         WarehouseInventoryFactory(product=product, warehouse_code="FL", on_hand_qty=30)
         assert product.warehouse_inventory.count() == 2
+
+
+class TestInventoryCommitment:
+    def test_create_commitment(self):
+        commitment = InventoryCommitmentFactory(committed_qty=25, warehouse_code="NY")
+        assert commitment.committed_qty == 25
+        assert commitment.warehouse_code == "NY"
+
+    def test_str(self):
+        commitment = InventoryCommitmentFactory(committed_qty=10)
+        assert "10" in str(commitment)
+        assert commitment.product.product_number in str(commitment)
+
+    def test_unique_order_line(self):
+        line = OrderLineFactory()
+        InventoryCommitmentFactory(order_line=line, product=line.product)
+        with pytest.raises(Exception):
+            InventoryCommitmentFactory(order_line=line, product=line.product)
+
+    def test_product_commitments_queryset(self):
+        product = ProductFactory()
+        InventoryCommitmentFactory(product=product, warehouse_code="NY", committed_qty=10)
+        InventoryCommitmentFactory(product=product, warehouse_code="FL", committed_qty=5)
+        assert product.commitments.count() == 2

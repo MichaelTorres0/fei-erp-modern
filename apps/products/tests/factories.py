@@ -1,5 +1,5 @@
 import factory
-from apps.products.models import Product, ProductAnnex, KitComponent, WarehouseInventory
+from apps.products.models import Product, ProductAnnex, KitComponent, WarehouseInventory, InventoryCommitment
 
 
 class ProductFactory(factory.django.DjangoModelFactory):
@@ -40,3 +40,14 @@ class WarehouseInventoryFactory(factory.django.DjangoModelFactory):
     warehouse_code = "NY"
     on_hand_qty = 100
     standard_cost = factory.LazyFunction(lambda: 10.00)
+
+
+class InventoryCommitmentFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = InventoryCommitment
+
+    order_line = factory.SubFactory("apps.orders.tests.factories.OrderLineFactory")
+    product = factory.LazyAttribute(lambda o: o.order_line.product)
+    warehouse_code = "NY"
+    committed_qty = 10
+    backorder_qty = 0

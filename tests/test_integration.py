@@ -17,7 +17,7 @@ from apps.orders.services import (
     check_inventory,
     sync_customer_open_orders,
 )
-from apps.pricing.models import CustomerSpecialPrice
+from apps.pricing.models import CustomerSpecialPrice, AffiliationPrice
 from apps.products.models import Product, KitComponent, WarehouseInventory
 from apps.products.services import get_availability, get_kit_availability
 from apps.products.tests.factories import ProductFactory
@@ -403,3 +403,115 @@ class TestCreditCheckEdgeCases:
         result = check_credit(customer, Decimal("300"))
         assert not result.approved
         assert "exceeded" in result.reason
+
+
+@pytest.mark.django_db
+class TestPricingTierIntegration:
+    """Verify full pricing hierarchy in order context."""
+
+    def setup_method(self):
+        self.product = Product.objects.create(
+            product_number="PT-001", description="Pricing Test Product",
+            list_price=Decimal("100.0000"), dealer_price=Decimal("60.0000"),
+            price_a=Decimal("80.0000"), price_b=Decimal("70.0000"),
+            standard_cost=Decimal("30.0000"),
+        )
+        WarehouseInventory.objects.create(
+            product=self.product, warehouse_code="NY", on_hand_qty=500,
+        )
+
+    def test_tier_cascade_special_to_affiliation_to_company(self):
+        cust_special = Customer.objects.create(
+            customer_number="PT-SP", name="Special Price Customer",
+            credit_code="A", credit_limit=Decimal("999999"),
+        )
+        CustomerAnnex.objects.create(customer=cust_special)
+        CustomerSpecialPrice.objects.create(
+            customer=cust_special, product=self.product,
+            gross_price=Decimal("50.0000"), net_price=Decimal("50.0000"),
+        )
+
+        cust_aff = Customer.objects.create(
+            customer_number="PT-AF", name="Affiliation Customer",
+            credit_code="A", credit_limit=Decimal("999999"),
+            affiliation="TEST_AFF",
+        )
+        CustomerAnnex.objects.create(customer=cust_aff)
+        AffiliationPrice.objects.create(
+            affiliation_code="TEST_AFF", product=self.product,
+            gross_price=Decimal("65.0000"), net_price=Decimal("65.0000"),
+        )
+
+        cust_best = Customer.objects.create(
+            customer_number="PT-BC", name="BEST Customer",
+            credit_code="A", credit_limit=Decimal("999999"),
+            company_code="B",
+        )
+        CustomerAnnex.objects.create(customer=cust_best)
+
+        cust_default = Customer.objects.create(
+            customer_number="PT-DF", name="Default Customer",
+            credit_code="A", credit_limit=Decimal("999999"),
+        )
+        CustomerAnnex.objects.create(customer=cust_default)
+
+        lines = [{"product_id": self.product.pk, "qty_ordered": 1}]
+
+        o1 = create_order(customer=cust_special, lines=lines)
+        o2 = create_order(customer=cust_aff, lines=lines)
+        o3 = create_order(customer=cust_best, lines=lines)
+        o4 = create_order(customer=cust_default, lines=lines)
+
+        assert o1.lines.first().net_price == Decimal("50.0000")
+        assert o2.lines.first().net_price == Decimal("65.0000")
+        assert o3.lines.first().net_price == Decimal("60.0000")
+        assert o4.lines.first().net_price == Decimal("80.0000")
+
+
+@pytest.mark.django_db
+class TestExtendedQueueIntegration:
+    def setup_method(self):
+        self.customer = Customer.objects.create(
+            customer_number="QI-001", name="Queue Test Corp",
+            credit_code="A", credit_limit=Decimal("100000"),
+        )
+        CustomerAnnex.objects.create(customer=self.customer)
+        self.product = Product.objects.create(
+            product_number="QI-P001", description="Queue Test Product",
+            list_price=Decimal("50.0000"), standard_cost=Decimal("20.0000"),
+        )
+        WarehouseInventory.objects.create(
+            product=self.product, warehouse_code="NY", on_hand_qty=100,
+        )
+
+    def test_freight_quote_flow(self):
+        order = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 5}],
+        )
+        assert order.queue_status == "MGQ"
+        transition_queue(order, "FQQ", "SHIPPING")
+        transition_queue(order, "PTQ", "SHIPPING")
+        transition_queue(order, "IVQ", "WAREHOUSE")
+        assert order.queue_status == "IVQ"
+
+    def test_sales_review_flow(self):
+        order = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 1}],
+        )
+        transition_queue(order, "SRQ", "ADMIN")
+        transition_queue(order, "MGQ", "SALES_MGR")
+        transition_queue(order, "PTQ", "ADMIN")
+        assert order.queue_status == "PTQ"
+
+    def test_problem_queue_flow(self):
+        order = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 1}],
+        )
+        transition_queue(order, "PTQ", "ADMIN")
+        transition_queue(order, "PQ", "WAREHOUSE")
+        transition_queue(order, "PTQ", "WAREHOUSE")
+        transition_queue(order, "IVQ", "WAREHOUSE")
+        assert order.queue_status == "IVQ"

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Product, ProductAnnex, KitComponent, WarehouseInventory
+from .models import Product, ProductAnnex, KitComponent, WarehouseInventory, InventoryCommitment
 
 
 class ProductAnnexInline(admin.StackedInline):
@@ -86,6 +86,24 @@ class ProductAdmin(admin.ModelAdmin):
         if len(obj.description) > 60:
             return obj.description[:60] + "..."
         return obj.description
+
+
+@admin.register(InventoryCommitment)
+class InventoryCommitmentAdmin(admin.ModelAdmin):
+    list_display = [
+        "order_line",
+        "product",
+        "warehouse_code",
+        "committed_qty",
+        "backorder_qty",
+        "created_at",
+    ]
+    list_filter = ["warehouse_code"]
+    search_fields = ["product__product_number", "order_line__order__order_number"]
+    readonly_fields = ["order_line", "product", "warehouse_code", "committed_qty", "backorder_qty", "created_at"]
+
+    def has_add_permission(self, request):
+        return False
 
 
 @admin.register(WarehouseInventory)

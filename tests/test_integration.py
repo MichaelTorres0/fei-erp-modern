@@ -18,7 +18,7 @@ from apps.orders.services import (
     sync_customer_open_orders,
 )
 from apps.pricing.models import CustomerSpecialPrice, AffiliationPrice
-from apps.products.models import Product, KitComponent, WarehouseInventory
+from apps.products.models import Product, KitComponent, WarehouseInventory, InventoryCommitment
 from apps.products.services import get_availability, get_kit_availability
 from apps.products.tests.factories import ProductFactory
 
@@ -515,3 +515,70 @@ class TestExtendedQueueIntegration:
         transition_queue(order, "PTQ", "WAREHOUSE")
         transition_queue(order, "IVQ", "WAREHOUSE")
         assert order.queue_status == "IVQ"
+
+
+@pytest.mark.django_db
+class TestInventoryCommitmentIntegration:
+    def setup_method(self):
+        self.customer = Customer.objects.create(
+            customer_number="IC-001", name="Commitment Test Corp",
+            credit_code="A", credit_limit=Decimal("100000"),
+            backorder_flag=True,
+        )
+        CustomerAnnex.objects.create(customer=self.customer)
+        self.product = Product.objects.create(
+            product_number="IC-P001", description="Commitment Product",
+            list_price=Decimal("50.0000"), standard_cost=Decimal("20.0000"),
+        )
+        WarehouseInventory.objects.create(
+            product=self.product, warehouse_code="NY", on_hand_qty=40,
+        )
+
+    def test_commitment_lifecycle(self):
+        order = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 15}],
+        )
+        assert InventoryCommitment.objects.filter(order_line__order=order).count() == 1
+        c = InventoryCommitment.objects.get(order_line__order=order)
+        assert c.committed_qty == 15
+        assert c.backorder_qty == 0
+
+        avail = get_availability(self.product, "NY")
+        assert avail["NY"]["committed"] == 15
+        assert avail["NY"]["available"] == 25
+
+        transition_queue(order, "PTQ", "TEST")
+        transition_queue(order, "IVQ", "TEST")
+
+        assert InventoryCommitment.objects.filter(order_line__order=order).count() == 0
+        avail = get_availability(self.product, "NY")
+        assert avail["NY"]["committed"] == 0
+        assert avail["NY"]["available"] == 40
+
+    def test_backorder_split(self):
+        order = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 60}],
+        )
+        line = order.lines.first()
+        assert line.qty_open == 40
+        assert line.backorder_qty == 20
+
+        c = InventoryCommitment.objects.get(order_line=line)
+        assert c.committed_qty == 40
+        assert c.backorder_qty == 20
+
+    def test_multiple_orders_compete_for_stock(self):
+        o1 = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 30}],
+        )
+        o2 = create_order(
+            customer=self.customer,
+            lines=[{"product_id": self.product.pk, "qty_ordered": 25}],
+        )
+        assert o1.lines.first().qty_open == 30
+        assert o1.lines.first().backorder_qty == 0
+        assert o2.lines.first().qty_open == 10
+        assert o2.lines.first().backorder_qty == 15

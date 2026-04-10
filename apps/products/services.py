@@ -1,29 +1,23 @@
+from dataclasses import dataclass
 from django.db.models import Sum
 
-from apps.products.models import WarehouseInventory
-from apps.orders.constants import ACTIVE_QUEUE_STATUSES
+from apps.products.models import WarehouseInventory, InventoryCommitment
 
 
 def get_availability(product, warehouse_code=None):
     """
-    Calculate available inventory for a product across warehouses.
-
-    Returns dict keyed by warehouse_code:
-        {"NY": {"on_hand": 100, "committed": 30, "available": 70}, ...}
+    Calculate available inventory using InventoryCommitment model.
     """
-    from apps.orders.models import OrderLine
-
     qs = WarehouseInventory.objects.filter(product=product)
     if warehouse_code:
         qs = qs.filter(warehouse_code=warehouse_code)
 
     result = {}
     for inv in qs:
-        committed = OrderLine.objects.filter(
+        committed = InventoryCommitment.objects.filter(
             product=product,
             warehouse_code=inv.warehouse_code,
-            order__queue_status__in=ACTIVE_QUEUE_STATUSES,
-        ).aggregate(total=Sum("qty_open"))["total"] or 0
+        ).aggregate(total=Sum("committed_qty"))["total"] or 0
 
         result[inv.warehouse_code] = {
             "on_hand": inv.on_hand_qty,
@@ -32,6 +26,59 @@ def get_availability(product, warehouse_code=None):
         }
 
     return result
+
+
+@dataclass
+class AllocationResult:
+    committed_qty: int
+    backorder_qty: int
+
+
+def allocate_inventory(order_line, backorder_allowed=True) -> AllocationResult:
+    """
+    Allocate warehouse inventory for an order line.
+    Creates InventoryCommitment and updates order_line quantities.
+    """
+    product = order_line.product
+    warehouse = order_line.warehouse_code
+    requested = order_line.qty_ordered
+
+    try:
+        inv = WarehouseInventory.objects.get(product=product, warehouse_code=warehouse)
+        on_hand = inv.on_hand_qty
+    except WarehouseInventory.DoesNotExist:
+        on_hand = 0
+
+    already_committed = InventoryCommitment.objects.filter(
+        product=product, warehouse_code=warehouse,
+    ).aggregate(total=Sum("committed_qty"))["total"] or 0
+
+    available = max(0, on_hand - already_committed)
+    committed = min(requested, available)
+
+    if backorder_allowed:
+        backorder = requested - committed
+    else:
+        backorder = 0
+
+    InventoryCommitment.objects.create(
+        order_line=order_line,
+        product=product,
+        warehouse_code=warehouse,
+        committed_qty=committed,
+        backorder_qty=backorder,
+    )
+
+    order_line.qty_open = committed
+    order_line.backorder_qty = backorder
+    order_line.save(update_fields=["qty_open", "backorder_qty"])
+
+    return AllocationResult(committed_qty=committed, backorder_qty=backorder)
+
+
+def release_commitments(order):
+    """Release all inventory commitments for an order (called on IVQ)."""
+    InventoryCommitment.objects.filter(order_line__order=order).delete()
 
 
 def get_kit_availability(product, warehouse_code, _seen=None):

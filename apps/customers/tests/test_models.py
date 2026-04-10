@@ -35,6 +35,14 @@ class TestCustomer:
         )
         assert customer.available_credit == 2000.00
 
+    def test_company_code_default(self):
+        customer = CustomerFactory()
+        assert customer.company_code == "F"
+
+    def test_price_level_default(self):
+        customer = CustomerFactory()
+        assert customer.price_level == ""
+
 
 class TestCustomerAnnex:
     def test_create_annex(self):

@@ -33,6 +33,19 @@ class Customer(models.Model):
     backorder_flag = models.BooleanField(default=False)
     default_ship_via = models.CharField(max_length=50, blank=True, default="")
     special_discounts = models.CharField(max_length=200, blank=True, default="")
+    COMPANY_CODE_CHOICES = [
+        ("F", "Fabrication (Default)"),
+        ("B", "BEST"),
+        ("C", "CLEO"),
+        ("W", "Whitely"),
+    ]
+    company_code = models.CharField(
+        max_length=5, choices=COMPANY_CODE_CHOICES, default="F"
+    )
+    price_level = models.CharField(
+        max_length=5, blank=True, default="",
+        help_text="Override price level: L=List, A=Price A, B=Price B, X=BEST"
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

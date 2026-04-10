@@ -19,6 +19,8 @@ class CustomerFactory(factory.django.DjangoModelFactory):
     ar_balance = factory.LazyFunction(lambda: 0.00)
     open_order_amount = factory.LazyFunction(lambda: 0.00)
     over_90_balance = factory.LazyFunction(lambda: 0.00)
+    company_code = "F"
+    price_level = ""
 
 
 class CustomerAnnexFactory(factory.django.DjangoModelFactory):

@@ -12,6 +12,10 @@ class Product(models.Model):
     price_b = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
     standard_cost = models.DecimalField(max_digits=10, decimal_places=4, default=0)
     map_price = models.DecimalField(max_digits=10, decimal_places=4, null=True, blank=True)
+    price_code = models.CharField(
+        max_length=20, blank=True, default="",
+        help_text="Manufacturers Direct price code (from PRICE.CODES)"
+    )
     is_drop_ship = models.BooleanField(default=False)
     is_kit = models.BooleanField(default=False)
     is_obsolete = models.BooleanField(default=False)

@@ -581,6 +581,34 @@ class Command(BaseCommand):
                 po_number="WMT-EDI-2026-001",
             )
 
+        # --- Backorder scenario orders ---
+        self.stdout.write("  Creating backorder scenario orders...")
+
+        # Set some products to low stock for backorder demo
+        for pn, ny_qty, fl_qty in [("FEI-5001", 8, 3), ("FEI-2002", 5, 2)]:
+            try:
+                prod = Product.objects.get(product_number=pn)
+                WarehouseInventory.objects.filter(product=prod, warehouse_code="NY").update(on_hand_qty=ny_qty)
+                WarehouseInventory.objects.filter(product=prod, warehouse_code="FL").update(on_hand_qty=fl_qty)
+            except Product.DoesNotExist:
+                pass
+
+        # Order that triggers partial backorder (customer allows backorders)
+        try:
+            ds_inc = Customer.objects.get(customer_number="F10004")
+            ds_inc.backorder_flag = True
+            ds_inc.save(update_fields=["backorder_flag"])
+            hot_cold = Product.objects.get(product_number="FEI-5001")
+            if not Order.objects.filter(po_number="BO-DEMO-001").exists():
+                create_order(
+                    customer=ds_inc,
+                    lines=[{"product_id": hot_cold.pk, "qty_ordered": 25, "warehouse_code": "NY"}],
+                    placed_by="SEED",
+                    po_number="BO-DEMO-001",
+                )
+        except (Customer.DoesNotExist, Product.DoesNotExist):
+            pass
+
         # -----------------------------------------------------------------------
         # SUMMARY
         # -----------------------------------------------------------------------
@@ -603,6 +631,8 @@ class Command(BaseCommand):
         self.stdout.write(f"  Orders (total):     {Order.objects.count()}")
         for code, count in queue_counts.items():
             self.stdout.write(f"    {code}:             {count}")
+        from apps.products.models import InventoryCommitment
+        self.stdout.write(f"  Inventory commitments: {InventoryCommitment.objects.count()}")
 
     def _advance_to(self, order, target_queue, operator):
         """Advance an order through the queue pipeline to the target state."""

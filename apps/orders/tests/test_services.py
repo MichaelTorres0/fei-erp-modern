@@ -184,3 +184,25 @@ class TestTransitionQueue:
         order = OrderFactory(queue_status="PQ")
         updated = transition_queue(order, "PTQ", "admin")
         assert updated.queue_status == "PTQ"
+
+
+class TestOrderPricingIntegration:
+    def test_order_uses_price_a_below_threshold(self):
+        customer = CustomerFactory(credit_code="A", company_code="F")
+        product = ProductFactory(list_price=50.00, price_a=40.00, price_b=35.00)
+        lines = [{"product_id": product.pk, "qty_ordered": 10, "warehouse_code": "NY"}]
+        order = create_order(customer=customer, lines=lines, placed_by="TEST")
+        line = order.lines.first()
+        assert line.unit_price == Decimal("40.0000")
+
+    def test_kit_order_prices_by_components(self):
+        from apps.products.tests.factories import KitComponentFactory
+        customer = CustomerFactory(credit_code="A")
+        kit = ProductFactory(is_kit=True, list_price=100.00)
+        comp = ProductFactory(list_price=30.00)
+        KitComponentFactory(parent_product=kit, component_product=comp, quantity_per_kit=2)
+        lines = [{"product_id": kit.pk, "qty_ordered": 1, "warehouse_code": "NY"}]
+        order = create_order(customer=customer, lines=lines, placed_by="TEST")
+        line = order.lines.first()
+        # Kit price = 30 * 2 = 60
+        assert line.net_price == Decimal("60.0000")

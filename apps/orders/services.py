@@ -206,6 +206,26 @@ def create_order(customer, lines, placed_by="SYSTEM", **header_fields) -> Order:
     order.subtotal = subtotal
     order.save(update_fields=["subtotal"])
 
+    # Second pass: if company code F, re-price with order total for threshold check
+    if (getattr(customer, 'company_code', 'F') or 'F') == 'F' and subtotal > Decimal("0"):
+        repriced = False
+        new_subtotal = Decimal("0")
+        for line in OrderLine.objects.filter(order=order):
+            new_result = calculate_price(customer, line.product, order_total=subtotal)
+            if new_result.gross != line.unit_price:
+                line.unit_price = new_result.gross
+                line.discount_1 = new_result.discount_1
+                line.discount_2 = new_result.discount_2
+                line.net_price = new_result.net
+                line.extension = new_result.net * line.qty_ordered
+                line.save()
+                repriced = True
+            new_subtotal += line.extension
+        if repriced:
+            subtotal = new_subtotal
+            order.subtotal = subtotal
+            order.save(update_fields=["subtotal"])
+
     # Run credit check and route
     credit_result = check_credit(customer, subtotal)
     order.queue_status = credit_result.queue

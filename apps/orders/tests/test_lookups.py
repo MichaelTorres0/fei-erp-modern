@@ -18,7 +18,7 @@ class TestPricingLookup:
         assert data["unit_price"] == "50.0000"
         assert data["net_price"] == "50.0000"
         assert data["cost"] == "20.0000"
-        assert data["source"] == "base_product"
+        assert data["source"] == "company_code_F"
 
     def test_returns_special_price(self, api_client):
         customer = CustomerFactory()

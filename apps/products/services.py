@@ -1,9 +1,7 @@
 from django.db.models import Sum
 
 from apps.products.models import WarehouseInventory
-
-
-ACTIVE_QUEUE_STATUSES = ["OEQ", "MGQ", "CHQ", "PTQ"]
+from apps.orders.constants import ACTIVE_QUEUE_STATUSES
 
 
 def get_availability(product, warehouse_code=None):

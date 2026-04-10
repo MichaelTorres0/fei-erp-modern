@@ -5,32 +5,13 @@ from typing import List
 from django.db import transaction
 from django.db.models import Sum
 
+from apps.orders.constants import ACTIVE_QUEUE_STATUSES, VALID_TRANSITIONS, HOLD_CREDIT_CODES
 from apps.orders.models import Order, OrderLine, OrderAudit
 from apps.pricing.services import calculate_price
 from apps.products.models import Product
 
-
-# Valid queue transitions (from -> allowed destinations)
-VALID_TRANSITIONS = {
-    "OEQ": ["MGQ", "CHQ"],
-    "CHQ": ["MGQ"],
-    "MGQ": ["PTQ", "FQQ", "CRDQ", "SRQ", "PDQ"],
-    "FQQ": ["PTQ", "MGQ"],
-    "CRDQ": ["PTQ", "MGQ"],
-    "SRQ": ["MGQ"],
-    "PDQ": ["MGQ"],
-    "PTQ": ["IVQ", "BOQ", "PQ"],
-    "BOQ": ["PTQ"],
-    "PQ": ["PTQ", "MGQ"],
-    "CSQ": ["MGQ", "OEQ"],
-    "IVQ": [],
-}
-
-# Queue statuses that count toward open order amount
-OPEN_QUEUE_STATUSES = ["OEQ", "MGQ", "CHQ", "PTQ", "FQQ", "CRDQ", "SRQ", "PDQ", "BOQ", "PQ", "CSQ"]
-
-# Credit codes that always go to credit hold
-HOLD_CREDIT_CODES = {"D", "C", "Z", "H"}
+# Backward-compatible alias
+OPEN_QUEUE_STATUSES = ACTIVE_QUEUE_STATUSES
 
 
 @dataclass

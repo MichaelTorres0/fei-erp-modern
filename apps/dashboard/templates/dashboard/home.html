@@ -1,0 +1,174 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="metric-label">Open Orders</div>
+        <div class="metric-value">{{ total_open_orders }}</div>
+    </div>
+    <div class="metric-card green">
+        <div class="metric-label">Open Order Value</div>
+        <div class="metric-value">${{ total_open_value|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card orange">
+        <div class="metric-label">Active Customers</div>
+        <div class="metric-value">{{ total_customers }}</div>
+    </div>
+    <div class="metric-card red">
+        <div class="metric-label">Active Products</div>
+        <div class="metric-value">{{ total_products }}</div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Order Pipeline by Queue</div>
+        <a href="{% url 'dashboard:pipeline' %}">View details →</a>
+    </div>
+    <div class="panel-body">
+        <div class="queue-grid">
+            {% for q in queue_summary %}
+            <div class="queue-card" style="border-top-color: {{ q.color }};">
+                <div class="queue-code">{{ q.code }}</div>
+                <div class="queue-label">{{ q.label }}</div>
+                <div class="queue-count" style="color: {{ q.color }};">{{ q.count }}</div>
+                <div class="queue-value">${{ q.total_value|floatformat:0|intcomma }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<div class="panels-row">
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">Credit Hold Queue (CHQ)</div>
+            <span style="color: #6b7280; font-size: 12px;">{{ credit_hold_orders|length }} orders</span>
+        </div>
+        {% if credit_hold_orders %}
+        <table>
+            <thead><tr><th>Order #</th><th>Customer</th><th class="num">Subtotal</th></tr></thead>
+            <tbody>
+                {% for order in credit_hold_orders %}
+                <tr>
+                    <td><a href="/admin/orders/order/{{ order.id }}/change/">{{ order.order_number }}</a></td>
+                    <td>{{ order.customer.customer_number }} — {{ order.customer.name }}</td>
+                    <td class="num">${{ order.subtotal|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No orders on credit hold</div>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">Credit Risk — Customers at 75%+ Utilization</div>
+        </div>
+        {% if at_risk_customers %}
+        <table>
+            <thead><tr><th>Customer</th><th>Utilization</th><th class="num">Available</th></tr></thead>
+            <tbody>
+                {% for row in at_risk_customers %}
+                <tr>
+                    <td>{{ row.customer.customer_number }} — {{ row.customer.name }}</td>
+                    <td>
+                        {{ row.utilization }}%
+                        <div class="progress-bar">
+                            <div class="progress-fill {% if row.utilization >= 100 %}danger{% elif row.utilization >= 90 %}warning{% else %}safe{% endif %}" style="width: {% if row.utilization > 100 %}100{% else %}{{ row.utilization }}{% endif %}%;"></div>
+                        </div>
+                    </td>
+                    <td class="num">${{ row.available|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">All customers within safe credit limits</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panels-row">
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">Top Customers by Open Orders</div>
+        </div>
+        {% if top_open_customers %}
+        <table>
+            <thead><tr><th>Customer</th><th class="num">Open Amount</th><th class="num">AR Balance</th></tr></thead>
+            <tbody>
+                {% for c in top_open_customers %}
+                <tr>
+                    <td>{{ c.customer_number }} — {{ c.name }}</td>
+                    <td class="num">${{ c.open_order_amount|floatformat:2|intcomma }}</td>
+                    <td class="num">${{ c.ar_balance|floatformat:2|intcomma }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No customers with open orders</div>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">Low Inventory Alerts (&lt; 10 units)</div>
+            <a href="{% url 'dashboard:inventory' %}">View inventory →</a>
+        </div>
+        {% if low_inventory %}
+        <table>
+            <thead><tr><th>Product</th><th>Warehouse</th><th class="num">On Hand</th></tr></thead>
+            <tbody>
+                {% for inv in low_inventory %}
+                <tr>
+                    <td>{{ inv.product.product_number }}</td>
+                    <td>{{ inv.warehouse_code }}</td>
+                    <td class="num" style="color: {% if inv.on_hand_qty < 5 %}#ef4444{% else %}#f59e0b{% endif %}; font-weight: 600;">{{ inv.on_hand_qty }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">All products adequately stocked</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Recent Orders</div>
+    </div>
+    {% if recent_orders %}
+    <table>
+        <thead><tr><th>Order #</th><th>Customer</th><th>Date</th><th>Queue</th><th class="num">Subtotal</th></tr></thead>
+        <tbody>
+            {% for order in recent_orders %}
+            <tr>
+                <td><a href="/admin/orders/order/{{ order.id }}/change/">{{ order.order_number }}</a></td>
+                <td>{{ order.customer.customer_number }} — {{ order.customer.name }}</td>
+                <td>{{ order.order_date }}</td>
+                <td>
+                    {% with q=order.queue_status %}
+                    {% if q == 'OEQ' %}<span class="badge" style="background:#6c757d;">OEQ</span>
+                    {% elif q == 'MGQ' %}<span class="badge" style="background:#28a745;">MGQ</span>
+                    {% elif q == 'CHQ' %}<span class="badge" style="background:#dc3545;">CHQ</span>
+                    {% elif q == 'PTQ' %}<span class="badge" style="background:#007bff;">PTQ</span>
+                    {% elif q == 'IVQ' %}<span class="badge" style="background:#17a2b8;">IVQ</span>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+                <td class="num">${{ order.subtotal|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No orders yet</div>
+    {% endif %}
+</div>
+{% endblock %}

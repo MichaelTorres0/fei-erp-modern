@@ -1,0 +1,48 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+{% block title %}Inventory Overview{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px;">Inventory Overview</h2>
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Stock Levels by Product & Warehouse</div>
+        <span style="color: #6b7280; font-size: 12px;">Available = On Hand − Committed (open orders)</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>Product #</th>
+                <th>Description</th>
+                <th>NY</th>
+                <th>FL</th>
+                <th>OH</th>
+                <th>D (Drop-ship)</th>
+                <th class="num">Total On Hand</th>
+                <th class="num">Committed</th>
+                <th class="num">Available</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td><a href="/admin/products/product/{{ row.product.id }}/change/">{{ row.product.product_number }}</a></td>
+                <td>{{ row.product.description|truncatechars:50 }}</td>
+                {% for wh in "NY,FL,OH,D"|slice:":" %}
+                {% endfor %}
+                {% with ny=row.warehouses.NY fl=row.warehouses.FL oh=row.warehouses.OH d=row.warehouses.D %}
+                <td>{% if ny %}<strong>{{ ny.available }}</strong> <span style="color:#9ca3af;">({{ ny.on_hand }}-{{ ny.committed }})</span>{% else %}—{% endif %}</td>
+                <td>{% if fl %}<strong>{{ fl.available }}</strong> <span style="color:#9ca3af;">({{ fl.on_hand }}-{{ fl.committed }})</span>{% else %}—{% endif %}</td>
+                <td>{% if oh %}<strong>{{ oh.available }}</strong> <span style="color:#9ca3af;">({{ oh.on_hand }}-{{ oh.committed }})</span>{% else %}—{% endif %}</td>
+                <td>{% if d %}<strong>{{ d.available }}</strong>{% else %}—{% endif %}</td>
+                {% endwith %}
+                <td class="num">{{ row.total_on_hand }}</td>
+                <td class="num" style="color: #f59e0b;">{{ row.total_committed }}</td>
+                <td class="num" style="font-weight: 600; color: {% if row.total_available < 10 %}#ef4444{% else %}#10b981{% endif %};">{{ row.total_available }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

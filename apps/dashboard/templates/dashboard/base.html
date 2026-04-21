@@ -1,0 +1,176 @@
+{% load humanize %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}FEI ERP Dashboard{% endblock %}</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #1f2937;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .navbar {
+            background: #1f2937;
+            color: white;
+            padding: 12px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .navbar h1 { font-size: 18px; font-weight: 600; }
+        .nav-links { display: flex; gap: 20px; }
+        .nav-links a {
+            color: #d1d5db;
+            text-decoration: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .nav-links a:hover { background: #374151; color: white; }
+        .nav-links a.active { background: #3b82f6; color: white; }
+        .container { max-width: 1400px; margin: 0 auto; padding: 24px; }
+
+        .metrics-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        .metric-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            border-left: 4px solid #3b82f6;
+        }
+        .metric-card.green { border-left-color: #10b981; }
+        .metric-card.orange { border-left-color: #f59e0b; }
+        .metric-card.red { border-left-color: #ef4444; }
+        .metric-label { color: #6b7280; font-size: 12px; text-transform: uppercase; font-weight: 600; letter-spacing: 0.5px; }
+        .metric-value { font-size: 28px; font-weight: 700; margin-top: 4px; color: #1f2937; }
+
+        .panel {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 24px;
+            overflow: hidden;
+        }
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .panel-title { font-size: 16px; font-weight: 600; }
+        .panel-body { padding: 16px 20px; }
+
+        .panels-row {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .queue-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 12px;
+        }
+        .queue-card {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            text-align: center;
+            border-top: 4px solid;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .queue-code {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #6b7280;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .queue-label { font-size: 14px; font-weight: 600; margin-top: 4px; }
+        .queue-count { font-size: 32px; font-weight: 700; margin: 8px 0; }
+        .queue-value { font-size: 12px; color: #6b7280; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        th {
+            background: #f9fafb;
+            font-weight: 600;
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #6b7280;
+            letter-spacing: 0.3px;
+        }
+        tr:hover td { background: #f9fafb; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            min-width: 40px;
+            text-align: center;
+        }
+        a { color: #3b82f6; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .progress-bar {
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+            margin-top: 4px;
+        }
+        .progress-fill {
+            height: 100%;
+            transition: width 0.3s;
+        }
+        .progress-fill.safe { background: #10b981; }
+        .progress-fill.warning { background: #f59e0b; }
+        .progress-fill.danger { background: #ef4444; }
+
+        .empty-state {
+            text-align: center;
+            color: #9ca3af;
+            padding: 32px;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <h1>FEI ERP Dashboard</h1>
+        <div class="nav-links">
+            <a href="{% url 'dashboard:home' %}" class="{% if request.resolver_match.url_name == 'home' %}active{% endif %}">Overview</a>
+            <a href="{% url 'dashboard:pipeline' %}" class="{% if request.resolver_match.url_name == 'pipeline' %}active{% endif %}">Order Pipeline</a>
+            <a href="{% url 'dashboard:inventory' %}" class="{% if request.resolver_match.url_name == 'inventory' %}active{% endif %}">Inventory</a>
+            <a href="/admin/" style="border:1px solid #4b5563;">Django Admin</a>
+        </div>
+    </nav>
+    <div class="container">
+        {% block content %}{% endblock %}
+    </div>
+</body>
+</html>

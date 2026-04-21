@@ -1,0 +1,49 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+{% block title %}Order Pipeline{% endblock %}
+
+{% block content %}
+<h2 style="margin-bottom: 20px;">Order Pipeline</h2>
+
+{% for code, data in pipeline.items %}
+<div class="panel">
+    <div class="panel-header" style="border-left: 4px solid {{ data.color }}; padding-left: 16px;">
+        <div>
+            <div class="panel-title">
+                <span class="badge" style="background: {{ data.color }};">{{ code }}</span>
+                {{ data.label }}
+                <span style="color: #6b7280; font-weight: normal; margin-left: 8px;">— {{ data.count }} orders · ${{ data.total|floatformat:2|intcomma }}</span>
+            </div>
+        </div>
+    </div>
+    {% if data.orders %}
+    <table>
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Customer</th>
+                <th>Date</th>
+                <th>PO #</th>
+                <th>Placed By</th>
+                <th class="num">Subtotal</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in data.orders %}
+            <tr>
+                <td><a href="/admin/orders/order/{{ order.id }}/change/">{{ order.order_number }}</a></td>
+                <td>{{ order.customer.customer_number }} — {{ order.customer.name }}</td>
+                <td>{{ order.order_date }}</td>
+                <td>{{ order.po_number|default:"—" }}</td>
+                <td>{{ order.placed_by|default:"—" }}</td>
+                <td class="num">${{ order.subtotal|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No orders in this queue</div>
+    {% endif %}
+</div>
+{% endfor %}
+{% endblock %}

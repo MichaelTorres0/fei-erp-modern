@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
     # Third-party
     "rest_framework",
     "django_filters",
@@ -25,6 +26,9 @@ INSTALLED_APPS = [
     "apps.products",
     "apps.orders",
     "apps.pricing",
+    "apps.invoicing",
+    "apps.fulfillment",
+    "apps.dashboard",
 ]
 
 MIDDLEWARE = [

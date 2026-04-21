@@ -251,8 +251,16 @@ def transition_queue(order, new_status, operator) -> Order:
         notes=f"Transitioned from {old_status}",
     )
 
+    # Auto-generate pick ticket when entering PTQ
+    if new_status == "PTQ":
+        from apps.fulfillment.services import generate_pick_ticket_from_order
+        generate_pick_ticket_from_order(order)
+
     # Sync customer open order amount when order leaves active queues
     if new_status == "IVQ":
         sync_customer_open_orders(order.customer)
+        # Auto-generate invoice
+        from apps.invoicing.services import generate_invoice_from_order
+        generate_invoice_from_order(order, operator=operator)
 
     return order

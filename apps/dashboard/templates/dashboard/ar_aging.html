@@ -1,0 +1,87 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+
+{% block title %}AR Aging — FEI ERP{% endblock %}
+
+{% block content %}
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="metric-label">Current (0-30)</div>
+        <div class="metric-value">${{ totals.current|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card orange">
+        <div class="metric-label">31-60 Days</div>
+        <div class="metric-value">${{ totals.days_31_60|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card orange">
+        <div class="metric-label">61-90 Days</div>
+        <div class="metric-value">${{ totals.days_61_90|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card red">
+        <div class="metric-label">Over 90 Days</div>
+        <div class="metric-value">${{ totals.over_90|floatformat:0|intcomma }}</div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">AR Aging by Customer</div>
+        <span style="color: #6b7280; font-size: 12px;">
+            Total outstanding: <strong>${{ totals.total|floatformat:2|intcomma }}</strong>
+            across {{ rows|length }} customer{{ rows|length|pluralize }}
+        </span>
+    </div>
+    {% if rows %}
+    <table>
+        <thead>
+            <tr>
+                <th>Customer</th>
+                <th class="num">Invoices</th>
+                <th class="num">Current</th>
+                <th class="num">31-60</th>
+                <th class="num">61-90</th>
+                <th class="num">Over 90</th>
+                <th class="num">Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for row in rows %}
+            <tr>
+                <td>
+                    <a href="/admin/customers/customer/{{ row.customer_id }}/change/">
+                        {{ row.customer_number }}
+                    </a>
+                    — {{ row.customer_name }}
+                </td>
+                <td class="num">{{ row.invoice_count }}</td>
+                <td class="num">${{ row.buckets.current|floatformat:2|intcomma }}</td>
+                <td class="num" style="{% if row.buckets.days_31_60 > 0 %}color:#f59e0b;{% endif %}">
+                    ${{ row.buckets.days_31_60|floatformat:2|intcomma }}
+                </td>
+                <td class="num" style="{% if row.buckets.days_61_90 > 0 %}color:#f59e0b;{% endif %}">
+                    ${{ row.buckets.days_61_90|floatformat:2|intcomma }}
+                </td>
+                <td class="num" style="{% if row.buckets.over_90 > 0 %}color:#ef4444;font-weight:600;{% endif %}">
+                    ${{ row.buckets.over_90|floatformat:2|intcomma }}
+                </td>
+                <td class="num" style="font-weight:600;">${{ row.buckets.total|floatformat:2|intcomma }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr style="background:#f9fafb;font-weight:600;">
+                <td>Totals</td>
+                <td class="num"></td>
+                <td class="num">${{ totals.current|floatformat:2|intcomma }}</td>
+                <td class="num">${{ totals.days_31_60|floatformat:2|intcomma }}</td>
+                <td class="num">${{ totals.days_61_90|floatformat:2|intcomma }}</td>
+                <td class="num">${{ totals.over_90|floatformat:2|intcomma }}</td>
+                <td class="num">${{ totals.total|floatformat:2|intcomma }}</td>
+            </tr>
+        </tfoot>
+    </table>
+    {% else %}
+    <div class="empty-state">No outstanding invoices</div>
+    {% endif %}
+</div>
+{% endblock %}

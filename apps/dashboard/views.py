@@ -5,6 +5,7 @@ from django.db.models import Count, Sum, F
 from django.shortcuts import render
 
 from apps.customers.models import Customer
+from apps.invoicing.aging import ar_aging_by_customer, ar_aging_totals
 from apps.orders.models import Order, OrderLine
 from apps.products.models import Product, WarehouseInventory
 from apps.orders.services import OPEN_QUEUE_STATUSES
@@ -88,6 +89,9 @@ def home(request):
     total_customers = Customer.objects.filter(is_active=True).count()
     total_products = Product.objects.filter(is_active=True).count()
 
+    # AR aging snapshot
+    aging_totals = ar_aging_totals()
+
     context = {
         "queue_summary": queue_summary,
         "credit_hold_orders": credit_hold_orders,
@@ -99,8 +103,21 @@ def home(request):
         "total_open_value": total_open_value,
         "total_customers": total_customers,
         "total_products": total_products,
+        "aging_totals": aging_totals,
     }
     return render(request, "dashboard/home.html", context)
+
+
+@staff_member_required
+def ar_aging(request):
+    """AR aging report — outstanding invoice balances bucketed by age."""
+    rows = ar_aging_by_customer()
+    totals = ar_aging_totals()
+    context = {
+        "rows": rows,
+        "totals": totals,
+    }
+    return render(request, "dashboard/ar_aging.html", context)
 
 
 @staff_member_required

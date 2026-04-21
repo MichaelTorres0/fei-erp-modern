@@ -141,6 +141,42 @@
 
 <div class="panel">
     <div class="panel-header">
+        <div class="panel-title">AR Aging Snapshot</div>
+        <a href="{% url 'dashboard:ar_aging' %}">View full report →</a>
+    </div>
+    <div class="panel-body">
+        <div class="queue-grid" style="grid-template-columns: repeat(5, 1fr);">
+            <div class="queue-card" style="border-top-color:#10b981;">
+                <div class="queue-code">Current</div>
+                <div class="queue-label">0-30 days</div>
+                <div class="queue-count" style="color:#10b981;font-size:22px;">${{ aging_totals.current|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="queue-card" style="border-top-color:#f59e0b;">
+                <div class="queue-code">31-60</div>
+                <div class="queue-label">days</div>
+                <div class="queue-count" style="color:#f59e0b;font-size:22px;">${{ aging_totals.days_31_60|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="queue-card" style="border-top-color:#f59e0b;">
+                <div class="queue-code">61-90</div>
+                <div class="queue-label">days</div>
+                <div class="queue-count" style="color:#f59e0b;font-size:22px;">${{ aging_totals.days_61_90|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="queue-card" style="border-top-color:#ef4444;">
+                <div class="queue-code">Over 90</div>
+                <div class="queue-label">days</div>
+                <div class="queue-count" style="color:#ef4444;font-size:22px;">${{ aging_totals.over_90|floatformat:0|intcomma }}</div>
+            </div>
+            <div class="queue-card" style="border-top-color:#1f2937;">
+                <div class="queue-code">Total AR</div>
+                <div class="queue-label">outstanding</div>
+                <div class="queue-count" style="color:#1f2937;font-size:22px;">${{ aging_totals.total|floatformat:0|intcomma }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
         <div class="panel-title">Recent Orders</div>
     </div>
     {% if recent_orders %}

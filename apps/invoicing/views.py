@@ -4,6 +4,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from .aging import ar_aging_by_customer, ar_aging_totals
 from .models import Invoice
 from .serializers import InvoiceSerializer
 from .services import record_payment
@@ -31,3 +32,21 @@ class InvoiceViewSet(viewsets.ReadOnlyModelViewSet):
 
         invoice = record_payment(invoice, amount_dec)
         return Response(InvoiceSerializer(invoice).data)
+
+    @action(detail=False, methods=["get"], url_path="aging")
+    def aging(self, request):
+        rows = ar_aging_by_customer()
+        totals = ar_aging_totals()
+        return Response({
+            "totals": totals.as_dict(),
+            "customers": [
+                {
+                    "customer_id": r.customer_id,
+                    "customer_number": r.customer_number,
+                    "customer_name": r.customer_name,
+                    "invoice_count": r.invoice_count,
+                    **r.buckets.as_dict(),
+                }
+                for r in rows
+            ],
+        })

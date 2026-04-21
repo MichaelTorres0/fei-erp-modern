@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     "apps.pricing",
     "apps.invoicing",
     "apps.fulfillment",
+    "apps.returns",
     "apps.dashboard",
 ]
 

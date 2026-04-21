@@ -1,0 +1,179 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+
+{% block title %}Statement: {{ customer.customer_number }} — FEI ERP{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div>
+        <h2 style="font-size:20px;font-weight:700;">{{ customer.customer_number }} — {{ customer.name }}</h2>
+        <span style="color:#6b7280;">{{ customer.city }}{% if customer.state %}, {{ customer.state }}{% endif %}</span>
+    </div>
+    <a href="{% url 'dashboard:customer_list' %}" style="font-size:13px;">← Back to customers</a>
+</div>
+
+<div class="metrics-row">
+    <div class="metric-card">
+        <div class="metric-label">Total Invoiced</div>
+        <div class="metric-value">${{ total_invoiced|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card green">
+        <div class="metric-label">Total Paid</div>
+        <div class="metric-value">${{ total_paid|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card orange">
+        <div class="metric-label">Credits Issued</div>
+        <div class="metric-value">${{ total_credits|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card red">
+        <div class="metric-label">AR Balance</div>
+        <div class="metric-value">${{ customer.ar_balance|floatformat:0|intcomma }}</div>
+    </div>
+</div>
+
+<div class="panels-row">
+    <div class="panel" style="grid-column:1/3;">
+        <div class="panel-header">
+            <div class="panel-title">Account Summary</div>
+        </div>
+        <div class="panel-body" style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;">
+            <div><span style="color:#6b7280;font-size:12px;">Credit Code</span><br><strong>{{ customer.credit_code|default:"—" }}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">Credit Limit</span><br><strong>${{ customer.credit_limit|floatformat:2|intcomma }}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">Open Orders</span><br><strong>${{ customer.open_order_amount|floatformat:2|intcomma }}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">Available Credit</span><br><strong style="color:{% if customer.available_credit < 0 %}#ef4444{% else %}#10b981{% endif %};">${{ customer.available_credit|floatformat:2|intcomma }}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">Terms</span><br><strong>{{ customer.terms_code|default:"—" }}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">YTD Sales</span><br><strong>${{ customer.ytd_sales|floatformat:2|intcomma }}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">Last Payment</span><br><strong>{% if customer.last_payment_date %}${{ customer.last_payment_amount|floatformat:2|intcomma }} on {{ customer.last_payment_date }}{% else %}—{% endif %}</strong></div>
+            <div><span style="color:#6b7280;font-size:12px;">Over 90</span><br><strong style="{% if customer.over_90_balance > 0 %}color:#ef4444;{% endif %}">${{ customer.over_90_balance|floatformat:2|intcomma }}</strong></div>
+        </div>
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Invoices</div>
+        <span style="color:#6b7280;font-size:12px;">{{ invoices|length }} invoice{{ invoices|length|pluralize }}</span>
+    </div>
+    {% if invoices %}
+    <table>
+        <thead>
+            <tr>
+                <th>Invoice #</th>
+                <th>Order</th>
+                <th>Date</th>
+                <th>Due Date</th>
+                <th class="num">Total</th>
+                <th class="num">Paid</th>
+                <th class="num">Due</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for inv in invoices %}
+            <tr>
+                <td><a href="/admin/invoicing/invoice/{{ inv.id }}/change/">{{ inv.invoice_number }}</a></td>
+                <td>{{ inv.order.order_number }}</td>
+                <td>{{ inv.invoice_date }}</td>
+                <td>{{ inv.due_date|default:"—" }}</td>
+                <td class="num">${{ inv.total|floatformat:2|intcomma }}</td>
+                <td class="num">${{ inv.amount_paid|floatformat:2|intcomma }}</td>
+                <td class="num" style="{% if inv.amount_due > 0 %}color:#ef4444;font-weight:600;{% endif %}">
+                    ${{ inv.amount_due|floatformat:2|intcomma }}
+                </td>
+                <td>
+                    {% if inv.status == 'OPEN' %}<span class="badge" style="background:#f59e0b;">OPEN</span>
+                    {% elif inv.status == 'PAID' %}<span class="badge" style="background:#10b981;">PAID</span>
+                    {% elif inv.status == 'VOID' %}<span class="badge" style="background:#6b7280;">VOID</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No invoices</div>
+    {% endif %}
+</div>
+
+{% if rmas %}
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Returns / Credit Memos</div>
+        <span style="color:#6b7280;font-size:12px;">{{ rmas|length }} RMA{{ rmas|length|pluralize }}</span>
+    </div>
+    <table>
+        <thead>
+            <tr>
+                <th>RMA #</th>
+                <th>Invoice</th>
+                <th>Reason</th>
+                <th>Issued</th>
+                <th>CM #</th>
+                <th class="num">Credit</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for rma in rmas %}
+            <tr>
+                <td><a href="/admin/returns/rma/{{ rma.id }}/change/">{{ rma.rma_number }}</a></td>
+                <td>{{ rma.invoice.invoice_number }}</td>
+                <td>{{ rma.get_reason_display }}</td>
+                <td>{{ rma.issued_date }}</td>
+                <td>{{ rma.credit_memo_number|default:"—" }}</td>
+                <td class="num">${{ rma.credit_amount|floatformat:2|intcomma }}</td>
+                <td>
+                    {% if rma.status == 'OPEN' %}<span class="badge" style="background:#f59e0b;">OPEN</span>
+                    {% elif rma.status == 'RECEIVED' %}<span class="badge" style="background:#3b82f6;">RECEIVED</span>
+                    {% elif rma.status == 'CREDITED' %}<span class="badge" style="background:#10b981;">CREDITED</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Orders</div>
+        <span style="color:#6b7280;font-size:12px;">{{ orders|length }} order{{ orders|length|pluralize }}</span>
+    </div>
+    {% if orders %}
+    <table>
+        <thead>
+            <tr>
+                <th>Order #</th>
+                <th>Date</th>
+                <th>PO #</th>
+                <th class="num">Subtotal</th>
+                <th>Queue</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for o in orders %}
+            <tr>
+                <td><a href="/admin/orders/order/{{ o.id }}/change/">{{ o.order_number }}</a></td>
+                <td>{{ o.order_date }}</td>
+                <td>{{ o.po_number|default:"—" }}</td>
+                <td class="num">${{ o.subtotal|floatformat:2|intcomma }}</td>
+                <td>
+                    {% with q=o.queue_status %}
+                    {% if q == 'OEQ' %}<span class="badge" style="background:#6c757d;">OEQ</span>
+                    {% elif q == 'MGQ' %}<span class="badge" style="background:#28a745;">MGQ</span>
+                    {% elif q == 'CHQ' %}<span class="badge" style="background:#dc3545;">CHQ</span>
+                    {% elif q == 'PTQ' %}<span class="badge" style="background:#007bff;">PTQ</span>
+                    {% elif q == 'IVQ' %}<span class="badge" style="background:#17a2b8;">IVQ</span>
+                    {% endif %}
+                    {% endwith %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No orders</div>
+    {% endif %}
+</div>
+{% endblock %}

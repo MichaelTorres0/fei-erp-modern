@@ -1,0 +1,45 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+
+{% block title %}Customers — FEI ERP{% endblock %}
+
+{% block content %}
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Customer Directory</div>
+        <span style="color: #6b7280; font-size: 12px;">{{ customers|length }} active customer{{ customers|length|pluralize }}</span>
+    </div>
+    {% if customers %}
+    <table>
+        <thead>
+            <tr>
+                <th>Customer #</th>
+                <th>Name</th>
+                <th>Credit Code</th>
+                <th class="num">Credit Limit</th>
+                <th class="num">AR Balance</th>
+                <th class="num">Open Orders</th>
+                <th class="num">YTD Sales</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for c in customers %}
+            <tr>
+                <td><a href="{% url 'dashboard:customer_statement' c.id %}">{{ c.customer_number }}</a></td>
+                <td>{{ c.name }}</td>
+                <td>{{ c.credit_code }}</td>
+                <td class="num">${{ c.credit_limit|floatformat:2|intcomma }}</td>
+                <td class="num" style="{% if c.ar_balance > 0 %}color:#ef4444;{% endif %}">${{ c.ar_balance|floatformat:2|intcomma }}</td>
+                <td class="num">${{ c.open_order_amount|floatformat:2|intcomma }}</td>
+                <td class="num">${{ c.ytd_sales|floatformat:2|intcomma }}</td>
+                <td><a href="{% url 'dashboard:customer_statement' c.id %}">Statement →</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No active customers</div>
+    {% endif %}
+</div>
+{% endblock %}

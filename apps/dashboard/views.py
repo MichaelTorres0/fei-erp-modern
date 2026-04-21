@@ -2,12 +2,15 @@ from decimal import Decimal
 
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count, Sum, F
-from django.shortcuts import render
+from django.shortcuts import get_object_or_404, render
 
 from apps.customers.models import Customer
 from apps.invoicing.aging import ar_aging_by_customer, ar_aging_totals
+from apps.invoicing.models import Invoice
+from apps.invoicing.reporting import sales_by_product, sales_by_salesperson, sales_by_territory
 from apps.orders.models import Order, OrderLine
 from apps.products.models import Product, WarehouseInventory
+from apps.returns.models import RMA
 from apps.orders.services import OPEN_QUEUE_STATUSES
 
 
@@ -168,3 +171,75 @@ def inventory_overview(request):
 
     context = {"rows": rows}
     return render(request, "dashboard/inventory.html", context)
+
+
+@staff_member_required
+def customer_statement(request, customer_id):
+    """Unified customer statement: orders, invoices, payments, and RMAs."""
+    customer = get_object_or_404(Customer, pk=customer_id)
+
+    orders = (
+        Order.objects.filter(customer=customer)
+        .order_by("-order_date")
+    )
+    invoices = (
+        Invoice.objects.filter(customer=customer)
+        .order_by("-invoice_date")
+    )
+    rmas = (
+        RMA.objects.filter(customer=customer)
+        .exclude(status="CANCELLED")
+        .order_by("-issued_date")
+    )
+
+    total_invoiced = invoices.aggregate(total=Sum("total"))["total"] or Decimal("0")
+    total_paid = invoices.aggregate(total=Sum("amount_paid"))["total"] or Decimal("0")
+    total_credits = rmas.filter(status="CREDITED").aggregate(total=Sum("credit_amount"))["total"] or Decimal("0")
+
+    context = {
+        "customer": customer,
+        "orders": orders,
+        "invoices": invoices,
+        "rmas": rmas,
+        "total_invoiced": total_invoiced,
+        "total_paid": total_paid,
+        "total_credits": total_credits,
+    }
+    return render(request, "dashboard/customer_statement.html", context)
+
+
+@staff_member_required
+def customer_list(request):
+    """Customer directory for accessing statements."""
+    customers = (
+        Customer.objects.filter(is_active=True)
+        .order_by("customer_number")
+    )
+    context = {"customers": customers}
+    return render(request, "dashboard/customer_list.html", context)
+
+
+@staff_member_required
+def sales_report(request):
+    """Sales analytics — YTD by salesperson, territory, and product."""
+    import datetime
+    year = int(request.GET.get("year", datetime.date.today().year))
+
+    by_salesperson = sales_by_salesperson(year=year)
+    by_territory = sales_by_territory(year=year)
+    by_product = sales_by_product(year=year, limit=20)
+
+    total_revenue = sum((r["revenue"] for r in by_salesperson), Decimal("0"))
+    total_margin = sum((r["margin"] for r in by_salesperson), Decimal("0"))
+    overall_margin_pct = (total_margin / total_revenue * 100) if total_revenue else Decimal("0")
+
+    context = {
+        "year": year,
+        "by_salesperson": by_salesperson,
+        "by_territory": by_territory,
+        "by_product": by_product,
+        "total_revenue": total_revenue,
+        "total_margin": total_margin,
+        "overall_margin_pct": round(overall_margin_pct, 1),
+    }
+    return render(request, "dashboard/sales_report.html", context)

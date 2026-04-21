@@ -10,7 +10,7 @@ from .services import mark_picked, mark_shipped
 class PickTicketViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = PickTicket.objects.select_related("order__customer").prefetch_related("lines__product")
     serializer_class = PickTicketSerializer
-    filterset_fields = ["status", "warehouse_code"]
+    filterset_fields = ["status", "warehouse_code", "is_backorder"]
     search_fields = ["ticket_number", "order__order_number", "tracking_number"]
     ordering_fields = ["ticket_number", "created_at", "shipped_at"]
 
@@ -23,7 +23,10 @@ class PickTicketViewSet(viewsets.ReadOnlyModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         operator = request.data.get("operator", "system")
-        ticket = mark_picked(ticket, operator=operator)
+        line_picks = request.data.get("line_picks")
+        if line_picks:
+            line_picks = {int(k): int(v) for k, v in line_picks.items()}
+        ticket = mark_picked(ticket, operator=operator, line_picks=line_picks or None)
         return Response(PickTicketSerializer(ticket).data)
 
     @action(detail=True, methods=["post"])

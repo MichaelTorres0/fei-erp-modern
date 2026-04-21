@@ -167,6 +167,8 @@
             <a href="{% url 'dashboard:pipeline' %}" class="{% if request.resolver_match.url_name == 'pipeline' %}active{% endif %}">Order Pipeline</a>
             <a href="{% url 'dashboard:inventory' %}" class="{% if request.resolver_match.url_name == 'inventory' %}active{% endif %}">Inventory</a>
             <a href="{% url 'dashboard:ar_aging' %}" class="{% if request.resolver_match.url_name == 'ar_aging' %}active{% endif %}">AR Aging</a>
+            <a href="{% url 'dashboard:customer_list' %}" class="{% if request.resolver_match.url_name == 'customer_list' or request.resolver_match.url_name == 'customer_statement' %}active{% endif %}">Customers</a>
+            <a href="{% url 'dashboard:sales_report' %}" class="{% if request.resolver_match.url_name == 'sales_report' %}active{% endif %}">Sales</a>
             <a href="/admin/" style="border:1px solid #4b5563;">Django Admin</a>
         </div>
     </nav>

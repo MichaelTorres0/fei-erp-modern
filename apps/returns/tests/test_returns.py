@@ -48,7 +48,7 @@ def _shipped_invoice(customer, product, qty=5):
         lines=[{"product_id": product.id, "qty_ordered": qty}],
     )
     transition_queue(order, "PTQ", "TEST")
-    ticket = order.pick_ticket
+    ticket = order.pick_tickets.first()
     mark_picked(ticket, operator="TEST")
     mark_shipped(ticket, tracking_number="TRK", operator="TEST")
     order.refresh_from_db()

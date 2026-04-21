@@ -1,0 +1,128 @@
+{% extends "dashboard/base.html" %}
+{% load humanize %}
+
+{% block title %}Sales Report {{ year }} — FEI ERP{% endblock %}
+
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <h2 style="font-size:20px;font-weight:700;">Sales Report — {{ year }}</h2>
+</div>
+
+<div class="metrics-row" style="grid-template-columns:repeat(3,1fr);">
+    <div class="metric-card green">
+        <div class="metric-label">Total Revenue</div>
+        <div class="metric-value">${{ total_revenue|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card">
+        <div class="metric-label">Gross Margin</div>
+        <div class="metric-value">${{ total_margin|floatformat:0|intcomma }}</div>
+    </div>
+    <div class="metric-card orange">
+        <div class="metric-label">Margin %</div>
+        <div class="metric-value">{{ overall_margin_pct }}%</div>
+    </div>
+</div>
+
+<div class="panels-row">
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">By Salesperson</div>
+        </div>
+        {% if by_salesperson %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Salesperson</th>
+                    <th class="num">Revenue</th>
+                    <th class="num">Cost</th>
+                    <th class="num">Margin</th>
+                    <th class="num">Margin %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in by_salesperson %}
+                <tr>
+                    <td>{{ r.salesman }}</td>
+                    <td class="num">${{ r.revenue|floatformat:2|intcomma }}</td>
+                    <td class="num">${{ r.cost|floatformat:2|intcomma }}</td>
+                    <td class="num">${{ r.margin|floatformat:2|intcomma }}</td>
+                    <td class="num" style="{% if r.margin_pct < 20 %}color:#ef4444;{% elif r.margin_pct < 35 %}color:#f59e0b;{% else %}color:#10b981;{% endif %}font-weight:600;">
+                        {{ r.margin_pct }}%
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No invoiced sales for {{ year }}</div>
+        {% endif %}
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            <div class="panel-title">By Territory</div>
+        </div>
+        {% if by_territory %}
+        <table>
+            <thead>
+                <tr>
+                    <th>Territory</th>
+                    <th class="num">Revenue</th>
+                    <th class="num">Invoices</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for r in by_territory %}
+                <tr>
+                    <td>{{ r.territory }}</td>
+                    <td class="num">${{ r.revenue|floatformat:2|intcomma }}</td>
+                    <td class="num">{{ r.invoice_count }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state">No invoiced sales for {{ year }}</div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="panel">
+    <div class="panel-header">
+        <div class="panel-title">Top Products</div>
+        <span style="color:#6b7280;font-size:12px;">Top 20 by revenue</span>
+    </div>
+    {% if by_product %}
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Description</th>
+                <th class="num">Qty Sold</th>
+                <th class="num">Revenue</th>
+                <th class="num">Cost</th>
+                <th class="num">Margin</th>
+                <th class="num">Margin %</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for r in by_product %}
+            <tr>
+                <td>{{ r.product_number }}</td>
+                <td>{{ r.description }}</td>
+                <td class="num">{{ r.qty }}</td>
+                <td class="num">${{ r.revenue|floatformat:2|intcomma }}</td>
+                <td class="num">${{ r.cost|floatformat:2|intcomma }}</td>
+                <td class="num">${{ r.margin|floatformat:2|intcomma }}</td>
+                <td class="num" style="{% if r.margin_pct < 20 %}color:#ef4444;{% elif r.margin_pct < 35 %}color:#f59e0b;{% else %}color:#10b981;{% endif %}font-weight:600;">
+                    {{ r.margin_pct }}%
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">No invoiced sales for {{ year }}</div>
+    {% endif %}
+</div>
+{% endblock %}

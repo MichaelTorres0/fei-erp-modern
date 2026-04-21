@@ -59,8 +59,8 @@ class TestPickTicketGeneration:
         transition_queue(order, "PTQ", "TEST")
 
         order.refresh_from_db()
-        assert hasattr(order, "pick_ticket")
-        assert order.pick_ticket.status == "OPEN"
+        assert order.pick_tickets.count() == 1
+        assert order.pick_tickets.first().status == "OPEN"
 
     def test_generate_idempotent(self, customer, product):
         order = create_order(
@@ -80,7 +80,7 @@ class TestPickAndShipWorkflow:
             lines=[{"product_id": product.id, "qty_ordered": 3}],
         )
         transition_queue(order, "PTQ", "TEST")
-        ticket = order.pick_ticket
+        ticket = order.pick_tickets.first()
 
         mark_picked(ticket, operator="PICKER_01")
 
@@ -100,7 +100,7 @@ class TestPickAndShipWorkflow:
             lines=[{"product_id": product.id, "qty_ordered": 2}],
         )
         transition_queue(order, "PTQ", "TEST")
-        ticket = order.pick_ticket
+        ticket = order.pick_tickets.first()
         mark_picked(ticket, operator="PICKER_01")
 
         mark_shipped(ticket, tracking_number="1Z999AA1", operator="SHIPPER_01")
@@ -122,9 +122,120 @@ class TestPickAndShipWorkflow:
             lines=[{"product_id": product.id, "qty_ordered": 10}],
         )
         transition_queue(order, "PTQ", "TEST")
-        ticket = order.pick_ticket
+        ticket = order.pick_tickets.first()
         mark_picked(ticket, operator="TEST")
         mark_shipped(ticket, tracking_number="TRACK123", operator="TEST")
 
         inv_after = WarehouseInventory.objects.get(product=product, warehouse_code="NY")
         assert inv_after.on_hand_qty == on_hand_before - 10
+
+
+@pytest.mark.django_db
+class TestPartialPickAndBackorder:
+    def test_partial_pick_creates_backorder(self, customer, product):
+        order = create_order(
+            customer=customer,
+            lines=[{"product_id": product.id, "qty_ordered": 10}],
+        )
+        transition_queue(order, "PTQ", "TEST")
+        ticket = order.pick_tickets.first()
+
+        mark_picked(ticket, operator="PICKER", line_picks={1: 6})
+
+        ticket.refresh_from_db()
+        assert ticket.status == "PICKED"
+        assert ticket.lines.first().qty_picked == 6
+
+        order.refresh_from_db()
+        ol = order.lines.first()
+        assert ol.qty_shipped == 6
+        assert ol.qty_open == 4
+        assert ol.backorder_qty == 4
+
+    def test_partial_ship_generates_backorder_ticket(self, customer, product):
+        order = create_order(
+            customer=customer,
+            lines=[{"product_id": product.id, "qty_ordered": 10}],
+        )
+        transition_queue(order, "PTQ", "TEST")
+        ticket = order.pick_tickets.first()
+
+        mark_picked(ticket, operator="PICKER", line_picks={1: 7})
+        mark_shipped(ticket, tracking_number="PARTIAL-1", operator="SHIPPER")
+
+        order.refresh_from_db()
+        # Order should NOT be in IVQ yet — still has backorder qty
+        assert order.queue_status == "PTQ"
+
+        # A backorder pick ticket should have been auto-created
+        bo_ticket = order.pick_tickets.filter(is_backorder=True).first()
+        assert bo_ticket is not None
+        assert bo_ticket.status == "OPEN"
+        assert bo_ticket.lines.first().qty_ordered == 3
+
+        # Inventory deducted by the shipped qty only
+        inv = WarehouseInventory.objects.get(product=product, warehouse_code="NY")
+        assert inv.on_hand_qty == 93  # 100 - 7
+
+    def test_full_backorder_completion_transitions_to_ivq(self, customer, product):
+        order = create_order(
+            customer=customer,
+            lines=[{"product_id": product.id, "qty_ordered": 10}],
+        )
+        transition_queue(order, "PTQ", "TEST")
+        t1 = order.pick_tickets.first()
+
+        # Ship 7 of 10
+        mark_picked(t1, operator="P1", line_picks={1: 7})
+        mark_shipped(t1, tracking_number="SHIP-1", operator="S1")
+
+        # Backorder ticket created for remaining 3
+        bo = order.pick_tickets.filter(is_backorder=True, status="OPEN").first()
+        assert bo is not None
+
+        # Ship the remaining 3
+        mark_picked(bo, operator="P2")
+        mark_shipped(bo, tracking_number="SHIP-2", operator="S2")
+
+        order.refresh_from_db()
+        assert order.queue_status == "IVQ"
+        assert hasattr(order, "invoice")
+
+        # All qty shipped, none open
+        ol = order.lines.first()
+        assert ol.qty_shipped == 10
+        assert ol.qty_open == 0
+
+    def test_partial_pick_multi_line(self, customer, product):
+        p2 = Product.objects.create(
+            product_number="FF-PROD2",
+            description="Second Product",
+            list_price=Decimal("50.0000"),
+            standard_cost=Decimal("20.0000"),
+        )
+        WarehouseInventory.objects.create(product=p2, warehouse_code="NY", on_hand_qty=50)
+
+        order = create_order(
+            customer=customer,
+            lines=[
+                {"product_id": product.id, "qty_ordered": 5},
+                {"product_id": p2.id, "qty_ordered": 8},
+            ],
+        )
+        transition_queue(order, "PTQ", "TEST")
+        ticket = order.pick_tickets.first()
+
+        # Pick all of line 1, only 3 of line 2
+        mark_picked(ticket, operator="P1", line_picks={1: 5, 2: 3})
+        mark_shipped(ticket, tracking_number="MULTI-1", operator="S1")
+
+        order.refresh_from_db()
+        assert order.queue_status == "PTQ"  # still backordered
+
+        bo = order.pick_tickets.filter(is_backorder=True, status="OPEN").first()
+        assert bo is not None
+        # Only line 2 should appear on backorder (line 1 fully shipped)
+        assert bo.lines.count() == 1
+        bo_line = bo.lines.first()
+        assert bo_line.product == p2
+        assert bo_line.qty_ordered == 5  # 8 - 3
